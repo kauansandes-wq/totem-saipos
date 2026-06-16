@@ -772,7 +772,7 @@ function fetchSheetCSV(key){
   if(!gAccessToken)return Promise.reject(new Error('Sem token de acesso'));
   var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/export?format=csv&gid='+GIDS[key];
   return fetch(url,{headers:{'Authorization':'Bearer '+gAccessToken}}).then(function(r){
-    if(r.status===401||r.status===403){gAccessToken=null;showLogin();throw new Error('Token expirado, faça login novamente');}
+    if(r.status===401||r.status===403){console.error('Auth failed for '+key+': '+r.status);throw new Error('Token expirado ('+r.status+')');}
     if(!r.ok)throw new Error('HTTP '+r.status+' for '+key);
     return r.text();
   }).then(function(text){
@@ -1046,7 +1046,7 @@ function hideLogin(){document.getElementById('loginOverlay').classList.add('hidd
 function doGoogleLogin(){
   var client=google.accounts.oauth2.initTokenClient({
     client_id:OAUTH_CLIENT_ID,
-    scope:'https://www.googleapis.com/auth/spreadsheets.readonly',
+    scope:'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets.readonly',
     callback:function(resp){
       if(resp.error){
         document.getElementById('loginError').textContent='Erro: '+resp.error;
@@ -1070,8 +1070,13 @@ function loadAndRefresh(){
     })
     .catch(function(e){
       console.warn('Load falhou:',e);
-      var ft=document.querySelector('.sb-footer');
-      if(ft)ft.innerHTML='<span style="font-size:9px;color:rgba(255,255,255,0.3)">Usando dados offline</span>';
+      if(e.message&&e.message.indexOf('Token expirado')>=0){
+        gAccessToken=null;showLogin();
+        document.getElementById('loginError').textContent='Sessão expirada. Faça login novamente.';
+      }else{
+        var ft=document.querySelector('.sb-footer');
+        if(ft)ft.innerHTML='<span style="font-size:9px;color:rgba(255,255,255,0.3)">Usando dados offline</span>';
+      }
     });
 }
 
