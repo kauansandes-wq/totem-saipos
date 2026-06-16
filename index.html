@@ -738,6 +738,7 @@ function renderAll(){setDate();renderEstrategico();renderOperacional();renderSLA
 // ===== DATA LOADER — Lê CSVs do Google Sheets via OAuth do usuário =====
 var SHEET_ID='1HvhjoMC_6HOPi50MJmjvu6fe8MjWze2u8iTGBBoH0uw';
 var GIDS={pp:'1386058100',pt:'386490069',pdds:'533331248',bp:'1381313127',lm:'598999641'};
+var SHEET_NAMES={pp:'Pedidos positivo',pt:'Pedidos transacionados',pdds:'pdds_metricas',bp:'Metas BP Totem',lm:'Levantada de mão'};
 var OAUTH_CLIENT_ID='713337216355-phr5nke676h5sf42up6nqmfp1i2ri4r0.apps.googleusercontent.com';
 var gAccessToken=null;
 
@@ -770,14 +771,16 @@ function diffD(a,b){return Math.round((new Date(b)-new Date(a))/864e5);}
 
 function fetchSheetCSV(key){
   if(!gAccessToken)return Promise.reject(new Error('Sem token de acesso'));
-  var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/export?format=csv&gid='+GIDS[key];
+  var sheetName=encodeURIComponent(SHEET_NAMES[key]);
+  var url='https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/'+sheetName;
   return fetch(url,{headers:{'Authorization':'Bearer '+gAccessToken}}).then(function(r){
     if(r.status===401||r.status===403){console.error('Auth failed for '+key+': '+r.status);throw new Error('Token expirado ('+r.status+')');}
     if(!r.ok)throw new Error('HTTP '+r.status+' for '+key);
-    return r.text();
-  }).then(function(text){
-    console.log('Fetched '+key+': '+text.length+' chars');
-    return parseCSV(text);
+    return r.json();
+  }).then(function(data){
+    var rows=data.values||[];
+    console.log('Fetched '+key+': '+rows.length+' rows');
+    return rows;
   });
 }
 
@@ -1046,7 +1049,7 @@ function hideLogin(){document.getElementById('loginOverlay').classList.add('hidd
 function doGoogleLogin(){
   var client=google.accounts.oauth2.initTokenClient({
     client_id:OAUTH_CLIENT_ID,
-    scope:'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets.readonly',
+    scope:'https://www.googleapis.com/auth/spreadsheets.readonly',
     callback:function(resp){
       if(resp.error){
         document.getElementById('loginError').textContent='Erro: '+resp.error;
